@@ -9,10 +9,10 @@ CLEANER_FLAGS = -rf
 all: clean $(CLIENT) $(SERVER)
 
 $(CLIENT):
-	$(CC) $(CXX) $(CLIENT).c -o $(CLIENT) $(LDFLAGS)
+	$(CC) $(CXX) ftrans.c $(CLIENT).c -o $(CLIENT) $(LDFLAGS)
 
 $(SERVER): 
-	$(CC) $(CXX) $(SERVER).c -o $(SERVER)
+	$(CC) $(CXX) ftrans.c $(SERVER).c -o $(SERVER) $(LDFLAGS)
 
 clean:
 	$(CLEANER) $(CLEANER_FLAGS) $(CLIENT) $(SERVER)
