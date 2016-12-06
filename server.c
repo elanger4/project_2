@@ -50,7 +50,9 @@ int main(void) {
         while ((bytesReceived = read(connfd, buff, 260)) > 0) {
             printf("Bytes received %d\n", bytesReceived);
             fwrite(buff, 1, bytesReceived, fp);
-            write(connfd, buff + bytesReceived - 4, 4);           // Sending ack to client
+            printf("here\n");
+            write(connfd, buff + bytesReceived - 4, 4); // Sending ack to client
+            printf("here\n");
         }
 
         printf("File transfer complete.");

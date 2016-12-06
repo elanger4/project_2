@@ -53,6 +53,22 @@ int main(int argc, char *argv[]) {
             printf("Removed window\n");
         }
 
+        int * ack = NULL;
+        printf(
+        int bytesReceived = read(sockfd, ack, 4);
+
+        if (bytesReceived < 0) {
+            perror("Error Message");
+            return 1;
+        }
+        printf("recived bytes: %d\n", bytesReceived);
+        printf("Recieved ack for buf #: %d", *(ack));
+        /*
+        if ((read(sockfd, ack, 4)) > 0) {
+            printf("Recieved ack for buf #: %d", *(ack));
+        }
+        */
+
         if (nread < 256) {
             if (feof(fp)) {
                 printf("End of file\n");
