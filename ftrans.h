@@ -34,6 +34,4 @@ window *getwindow(windows *ws, unsigned int index);
 window *chktimewindows(windows *ws, long ttl);
 unsigned int remainingwindows(windows *ws);
 
-
-
 #endif
