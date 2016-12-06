@@ -54,7 +54,6 @@ int main(int argc, char *argv[]) {
         }
 
         int * ack = NULL;
-        printf(
         int bytesReceived = read(sockfd, ack, 4);
 
         if (bytesReceived < 0) {
