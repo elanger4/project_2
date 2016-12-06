@@ -1,14 +1,18 @@
 #include "ftrans.h"
 
-int main(void) {
+void printHelp(void);
+
+int main(int argc, char *argv[]) {
     int sockfd = 0;
-    int bytesReceived = 0;
     char recvBuff[256];
     memset(recvBuff, '0', sizeof(recvBuff));
     struct sockaddr_in serv_addr;
     windows wins;
-    const char filename[] = "sample_file.txt";
 
+    if(argc < 2) {
+        printHelp();
+        return 1;
+    }
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         printf("\n Error : Could not create socket \n");
         return 1;
@@ -24,19 +28,19 @@ int main(void) {
     }
 
     FILE *fp;
-    fp = fopen(filename, "rb");
+    fp = fopen(argv[1], "rb");
     if (NULL == fp) {
         printf("Error opening file");
         return 1;
     }
 
     // Send filename to server
-    write(sockfd, filename, strlen(filename));
+    write(sockfd, argv[1], strlen(argv[1]));
 
     wins.requests = NULL;
 
     while (1) {
-        unsigned char *buff = calloc(sizeof(unsigned char), 256);
+        char *buff = calloc(sizeof(unsigned char), 256);
         int nread = fread(buff, 1, 256, fp);
         unsigned int currwin = 0;
         printf("Bytes read %d \n", nread);
@@ -72,3 +76,6 @@ int main(void) {
     return 0;
 }
 
+void printHelp(void) {
+    printf("USAGE: ./client <filename>\n");
+}

@@ -1,1 +1,8 @@
 CS 428 Computer Networks Project 2 - File Transfer
+
+Build:
+     Execute "make"
+
+Running:
+    Server - Execute "./server" to start the server
+    Client - Execute "./client <filename>" to send the file to the server
