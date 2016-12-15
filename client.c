@@ -1,29 +1,43 @@
+#include <fcntl.h>
+
 #include "ftrans.h"
+
+#define TTL_TIME 99
+#define PORT_NUM 5551
+#define SERVER_ADDR "127.0.0.1"
 
 void printHelp(void);
 
 int main(int argc, char *argv[]) {
+    unsigned int currwin = 1;
     int sockfd = 0;
-    char recvBuff[256];
+    char recvBuff[260];
     memset(recvBuff, '0', sizeof(recvBuff));
-    struct sockaddr_in serv_addr;
+    struct sockaddr_in serv_addr, resp_addr;
+    unsigned int salen = sizeof(serv_addr);
     windows wins;
 
     if(argc < 2) {
         printHelp();
         return 1;
     }
-    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        printf("\n Error : Could not create socket \n");
+
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
+        perror("\n Error : Could not create socket \n");
         return 1;
     }
 
+    memset((unsigned char *) &serv_addr, 0, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(5550);  // port
-    serv_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    serv_addr.sin_port = htons(PORT_NUM);  // port
 
-    if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
-        printf("\n Error : Connect Failed \n");
+    if (inet_aton(SERVER_ADDR , &serv_addr.sin_addr) == 0) {
+        perror("inet_aton() failed\n");
+        return 1;
+    }
+
+    if(strlen(argv[1]) > 256) {
+        printf("Filename too large");
         return 1;
     }
 
@@ -34,39 +48,75 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    unsigned char *fips = calloc(sizeof(char),260);
+    unsigned int z;
+    for(z = 0; z < 260 && z < strlen(argv[1])+1; z++) {
+        fips[z] = argv[1][z];
+    }
+
+    //make socket non-blocking
+    int flags = fcntl(sockfd, F_GETFL, 0);
+    fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
+
     // Send filename to server
-    write(sockfd, argv[1], strlen(argv[1]));
+    printf("Sending filename of size %d: \"%s\"\n",strlen(argv[1]),argv[1]); 
+    if (sendto(sockfd, fips, 260, 0, (struct sockaddr *) &serv_addr, salen) == -1) {
+        perror("Failed sendto\n");
+        return 1;
+    }
 
     wins.requests = NULL;
 
+    addwindow(&wins, fips, 260);
+    removewindow(&wins, 0);
+
     while (1) {
-        char *buff = calloc(sizeof(unsigned char), 256);
+        unsigned char *buff = calloc(sizeof(unsigned char), 260);
+        unsigned char *ackbuff = calloc(sizeof(unsigned char), 8);
+        unsigned int bytesReceived = 0;
+
+        // make sure all data is received
+        do {
+            //chktimewindows(&wins, 99);
+            
+            //resend each window returned
+            
+            //read acks and remove related windows
+            bytesReceived = (recvfrom(sockfd, ackbuff, 4,0,(struct sockaddr *)&resp_addr,&salen));
+            if(bytesReceived >= 4) {
+                printf("Recieved Ack %04x\n",*((unsigned int *)ackbuff));
+                removewindow(&wins, *((unsigned int *)ackbuff));
+            }
+
+        } while ( remainingwindows(&wins) >= WINDOW_SIZE );
+
         int nread = fread(buff, 1, 256, fp);
-        unsigned int currwin = 0;
+        if (nread <= 0)
+        {
+            perror("Failed to read from file.");
+            return 1;
+        }
+
+        memcpy(buff+nread, &currwin, sizeof(currwin));
+        buff[nread] = ((char *)&currwin)[0];
+        buff[nread+1] = ((char *)&currwin)[1];
+        buff[nread+2] = ((char *)&currwin)[2];
+        buff[nread+3] = ((char *)&currwin)[3];
+
+        currwin++;
+
         printf("Bytes read %d \n", nread);
 
         if (nread > 0) {
             printf("Sending \n");
-            write(sockfd, buff, nread);
-            printf("Added window:%d\n", currwin = addwindow(&wins, buff));
+            if (sendto(sockfd, buff,  nread + 4, 0, (struct sockaddr *) &serv_addr, salen) == -1) {
+                perror("Failed sendto\n");
+                return 1;
+            }
+
+            addwindow(&wins, buff, nread);
             removewindow(&wins, currwin);
-            printf("Removed window\n");
         }
-
-        int * ack = NULL;
-        int bytesReceived = read(sockfd, ack, 4);
-
-        if (bytesReceived < 0) {
-            perror("Error Message");
-            return 1;
-        }
-        printf("recived bytes: %d\n", bytesReceived);
-        printf("Recieved ack for buf #: %d", *(ack));
-        /*
-        if ((read(sockfd, ack, 4)) > 0) {
-            printf("Recieved ack for buf #: %d", *(ack));
-        }
-        */
 
         if (nread < 256) {
             if (feof(fp)) {
@@ -79,7 +129,21 @@ int main(int argc, char *argv[]) {
 
             // make sure all data is received
             while (remainingwindows(&wins) > 0) {
-                chktimewindows(&wins, 99);
+                //read for acks
+                //if(false) {
+                //    removewindow(&wins, currwin);
+                //    printf("Removed window\n");
+                //} 
+                
+                //resend all timed out data
+                //if (chktimewindows(&wins, TTL_TIME)) {
+
+            //    }
+                bytesReceived = (recvfrom(sockfd, ackbuff, 4,0,(struct sockaddr *)&resp_addr,&salen));
+                if(bytesReceived >= 4) {
+                    printf("Recieved Ack %04x\n",*((unsigned int *)ackbuff));
+                    removewindow(&wins, *((unsigned int *)ackbuff));
+                }
             }
 
             close(sockfd);
@@ -87,7 +151,6 @@ int main(int argc, char *argv[]) {
             break;
         }
     }
-
     return 0;
 }
 

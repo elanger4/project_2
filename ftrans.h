@@ -14,12 +14,13 @@
 #include <time.h>
 #include <unistd.h>
 
-#define NUM_WINDOWS 20
+#define WINDOW_SIZE 20
 
 typedef struct window {
-    char *buff;
+    unsigned char *buff;
     long ms;
     unsigned int id;
+    unsigned int size;
     struct window *next;
 } window;
 
@@ -28,10 +29,12 @@ typedef struct windows {
     unsigned int numRequests;
 } windows;
 
-unsigned int addwindow(windows *ws, char *buff);
+unsigned int addwindow(windows *ws, unsigned char *buff, unsigned int size);
+unsigned int addwindowindex(windows *ws,unsigned char *buff,unsigned int size, unsigned int index);
 int removewindow(windows *ws, unsigned int index);
 window *getwindow(windows *ws, unsigned int index);
 window *chktimewindows(windows *ws, long ttl);
 unsigned int remainingwindows(windows *ws);
+void printwindows(windows ws);
 
 #endif

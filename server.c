@@ -8,83 +8,84 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "ftrans.h"
+
+#define PORT_NUM 5551
+#define MAX_FILESIZE 9999999
+
 int main(void) {
     int listenfd = 0;
-    int connfd = 0;
-    struct sockaddr_in serv_addr;
-    char sendBuff[1025];
-    int numrv;
+    struct sockaddr_in serv_addr, cli_addr;
+    unsigned int salen = sizeof(cli_addr);
 
-    listenfd = socket(AF_INET, SOCK_STREAM, 0);
+    listenfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 
     printf("Socket retrieve success\n");
 
     memset(&serv_addr, '0', sizeof(serv_addr));
-    memset(sendBuff, '0', sizeof(sendBuff));
 
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    serv_addr.sin_port = htons(5550);
+    serv_addr.sin_port = htons(PORT_NUM);
 
     bind(listenfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
 
-    if (listen(listenfd, 10) == -1) {
-        printf("Failed to listen\n");
-        return -1;
-    }
-
     while (1) {
-        connfd = accept(listenfd, (struct sockaddr *)NULL, NULL);
-        unsigned char buff[256] = {0};
+        unsigned char *buff = calloc(sizeof(char),260);
         int bytesReceived = 0;
+        unsigned int fin = 1;
         FILE *fp;
+        windows wins;
 
-        if ((read(connfd, buff, 256)) > 0) {
-            fp = fopen(buff, "wb");
-            if (fp == NULL) {
-                printf("File open error");
-                close(connfd);
+        wins.requests = NULL;
+
+        while (fin && (bytesReceived = (recvfrom(listenfd, buff, 260,0,(struct sockaddr *)&cli_addr,&salen))) >= 0) {
+            printf("Bytes received %d\n", bytesReceived);
+            if(bytesReceived < 4) {
+                printf("Ignoring packet of lenght <4\n");
+            } else {
+                printf("Packet Index: %d\n",*((unsigned int*)(buff+bytesReceived - 4)));
+                addwindowindex(&wins,buff,bytesReceived-4,*((int*)(buff + bytesReceived - 4)));
+                printf("Sending ack response\n");
+                if (sendto(listenfd, buff + bytesReceived - 4, 4, 0, (struct sockaddr*) &cli_addr, salen) == -1)
+                {
+                    perror("sendto failed");
+                    return 1;
+                }
+                //THIS WILL NEED TO BE REPLACED WITH A BETTER METHOD FOR DETECTING THE END OF THE TRANSMISSION
+                //handle this by sending the files size after the filename
+                if((bytesReceived-4) < 256) {
+                    fin = 0;
+                } else {
+                    buff = calloc(sizeof(char),260);
+                }
             }
         }
 
-        while ((bytesReceived = read(connfd, buff, 260)) > 0) {
-            printf("Bytes received %d\n", bytesReceived);
-            fwrite(buff, 1, bytesReceived, fp);
-            printf("here\n");
-            write(connfd, buff + bytesReceived - 4, 4); // Sending ack to client
-            printf("here\n");
+        //first and second are the file name and filesize respectively
+        fp = fopen( (char *)(*(getwindow(&wins,0))).buff, "wb");
+        if (fp == NULL) {
+            printf("Invalid filename: %s",buff);
+            perror("File open error");
+            return 1;
         }
 
-        printf("File transfer complete.");
+        removewindow(&wins,0);
+
+        unsigned long findex = 1;
+        while( (wins.requests != NULL) && (findex < MAX_FILESIZE) ) {
+            window *tmp = getwindow(&wins,findex);
+            if(tmp != NULL) {
+                fwrite((*tmp).buff, 1, (*tmp).size, fp);
+                removewindow(&wins,findex);
+            }
+            findex++;
+        }
+
+        printf("File transfer complete.\n");
 
         fflush(fp);
         fclose(fp);
-        /*
-                while(1)
-                {
-                    unsigned char buff[256]={0};
-                    int nread = fread(buff,1,256,fp);
-                    printf("Bytes read %d \n", nread);
-
-                    if(nread > 0)
-                    {
-                        printf("Sending \n");
-                        write(connfd, buff, nread);
-                    }
-
-                    if (nread < 256)
-                    {
-                        if (feof(fp))
-                            printf("End of file\n");
-                        if (ferror(fp))
-                            printf("Error reading\n");
-                        break;
-                    }
-
-
-                }
-        */
-        close(connfd);
     }
 
     return 0;

@@ -1,6 +1,29 @@
 #include "ftrans.h"
 
-unsigned int addwindow(windows *ws, char *buff) {
+unsigned int addwindowindex(windows *ws, unsigned char *buff,unsigned int size,unsigned int index) {
+    struct timespec spec;
+    window *iter = (*ws).requests;
+    window *tmp = calloc(sizeof(window), 1);
+
+    clock_gettime(CLOCK_REALTIME, &spec);
+    (*tmp).ms = floor((spec.tv_nsec / 1.0e6) + 0.5);
+    (*tmp).id = index;
+    (*tmp).buff = buff;
+    (*tmp).size = size;
+
+    if ((*ws).requests == NULL) {
+        (*ws).requests = tmp;
+    } else {
+        while ((*iter).next != NULL) {
+            iter = (*iter).next;
+        }
+        (*iter).next = tmp;
+    }
+
+    return index;
+}
+
+unsigned int addwindow(windows *ws, unsigned char *buff,unsigned int size) {
     static unsigned int index = 0;
     struct timespec spec;
     window *iter = (*ws).requests;
@@ -10,6 +33,7 @@ unsigned int addwindow(windows *ws, char *buff) {
     (*tmp).ms = floor((spec.tv_nsec / 1.0e6) + 0.5);
     (*tmp).id = index++;
     (*tmp).buff = buff;
+    (*tmp).size = size;
 
     if ((*ws).requests == NULL) {
         (*ws).requests = tmp;
@@ -25,12 +49,20 @@ unsigned int addwindow(windows *ws, char *buff) {
 
 int removewindow(windows *ws, unsigned int index) {
     window *tmp = (*ws).requests;
+    window *prev = NULL;
 
     while (tmp != NULL) {
         if ((*tmp).id == index) {
+            if(prev == NULL) {
+                (*ws).requests = (*tmp).next;
+            } else {
+                (*prev).next = (*tmp).next;
+            }
+            free((*tmp).buff);
             free(tmp);
             return 1;
         } else {
+            prev = tmp;
             tmp = (*tmp).next;
         }
     }
@@ -88,4 +120,12 @@ window *chktimewindows(windows *ws, long ttl) {
         iter = (*iter).next;
     }
     return stale;
+}
+
+void printwindows(windows ws) {
+    window *tmp = ws.requests;
+    while(tmp != NULL) {
+        printf("Window: id: %d bufflen: %d addr: %04x next: %04x\n",(*tmp).id,(*tmp).size,tmp,(*tmp).next);
+        tmp = (*tmp).next;
+    }
 }
