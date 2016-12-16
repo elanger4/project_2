@@ -119,6 +119,9 @@ window *chktimewindows(windows *ws, long ttl) {
         }
         iter = (*iter).next;
     }
+    if(prev != NULL) {
+        (*prev).next = stale;
+    }
     return stale;
 }
 

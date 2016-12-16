@@ -10,7 +10,7 @@
 
 #include "ftrans.h"
 
-#define PORT_NUM 5551
+#define PORT_NUM 5556
 #define MAX_FILESIZE 9999999
 
 int main(void) {

@@ -2,8 +2,8 @@
 
 #include "ftrans.h"
 
-#define TTL_TIME 99
-#define PORT_NUM 5551
+#define TTL_TIME 1
+#define PORT_NUM 5556
 #define SERVER_ADDR "127.0.0.1"
 
 void printHelp(void);
@@ -14,6 +14,7 @@ int main(int argc, char *argv[]) {
     char recvBuff[260];
     memset(recvBuff, '0', sizeof(recvBuff));
     struct sockaddr_in serv_addr, resp_addr;
+    struct timespec spec; 
     unsigned int salen = sizeof(serv_addr);
     windows wins;
 
@@ -77,9 +78,23 @@ int main(int argc, char *argv[]) {
 
         // make sure all data is received
         do {
-            //chktimewindows(&wins, 99);
+            window *reswins = chktimewindows(&wins, 99);
             
-            //resend each window returned
+            while(reswins != NULL) {
+                printf("Stale window: %d\n",(*reswins).id);
+                reswins = (*reswins).next;
+            }
+            
+            while(reswins != NULL) {
+                if (sendto(sockfd, (*reswins).buff,  (*reswins).size, 0, (struct sockaddr *) &serv_addr, salen) == -1) {
+                    perror("Failed sendto\n");
+                    return 1;
+                } else {
+                    clock_gettime(CLOCK_REALTIME, &spec);
+                    (*reswins).ms = floor((spec.tv_nsec / 1.0e6) + 0.5);
+                }
+                reswins = (*reswins).next;
+            }
             
             //read acks and remove related windows
             bytesReceived = (recvfrom(sockfd, ackbuff, 4,0,(struct sockaddr *)&resp_addr,&salen));
@@ -129,16 +144,24 @@ int main(int argc, char *argv[]) {
 
             // make sure all data is received
             while (remainingwindows(&wins) > 0) {
-                //read for acks
-                //if(false) {
-                //    removewindow(&wins, currwin);
-                //    printf("Removed window\n");
-                //} 
+                window *reswins = chktimewindows(&wins, 99);
                 
-                //resend all timed out data
-                //if (chktimewindows(&wins, TTL_TIME)) {
-
-            //    }
+                while(reswins != NULL) {
+                    printf("Stale window: %d\n",(*reswins).id);
+                    reswins = (*reswins).next;
+                }
+                
+                while(reswins != NULL) {
+                    if (sendto(sockfd, (*reswins).buff,  (*reswins).size, 0, (struct sockaddr *) &serv_addr, salen) == -1) {
+                        perror("Failed sendto\n");
+                        return 1;
+                    } else {
+                        clock_gettime(CLOCK_REALTIME, &spec);
+                        (*reswins).ms = floor((spec.tv_nsec / 1.0e6) + 0.5);
+                    }
+                    reswins = (*reswins).next;
+                }
+            
                 bytesReceived = (recvfrom(sockfd, ackbuff, 4,0,(struct sockaddr *)&resp_addr,&salen));
                 if(bytesReceived >= 4) {
                     printf("Recieved Ack %04x\n",*((unsigned int *)ackbuff));
