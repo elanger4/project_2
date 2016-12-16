@@ -35,7 +35,7 @@ unsigned int addwindowindex(windows *ws, unsigned char *buff, unsigned int size,
 int removewindow(windows *ws, unsigned int index);
 window *getwindow(windows *ws, unsigned int index);
 window *chktimewindows(windows *ws, long ttl);
-unsigned int remainingwindows(windows *ws);
+unsigned int remainingwindows(windows ws);
 void printwindows(windows ws);
 
 #endif

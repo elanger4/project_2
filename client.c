@@ -3,8 +3,6 @@
 #include "ftrans.h"
 
 #define TTL_TIME 1
-#define PORT_NUM 5556
-#define SERVER_ADDR "127.0.0.1"
 
 void printHelp(void);
 
@@ -18,7 +16,7 @@ int main(int argc, char *argv[]) {
     unsigned int salen = sizeof(serv_addr);
     windows wins;
 
-    if (argc < 2) {
+    if (argc < 4) {
         printHelp();
         return 1;
     }
@@ -30,9 +28,9 @@ int main(int argc, char *argv[]) {
 
     memset((unsigned char *)&serv_addr, 0, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(PORT_NUM);  // port
+    serv_addr.sin_port = htons(atoi(argv[3]));  // port
 
-    if (inet_aton(SERVER_ADDR, &serv_addr.sin_addr) == 0) {
+    if (inet_aton(argv[2], &serv_addr.sin_addr) == 0) {
         perror("inet_aton() failed\n");
         return 1;
     }
@@ -70,24 +68,22 @@ int main(int argc, char *argv[]) {
     wins.requests = NULL;
 
     addwindow(&wins, fips, 260);
-    removewindow(&wins, 0);
 
     while (1) {
         unsigned char *buff = calloc(sizeof(unsigned char), 260);
         unsigned char *ackbuff = calloc(sizeof(unsigned char), 8);
-        unsigned int bytesReceived = 0;
+        int bytesReceived = 0;
 
         // make sure all data is received
         do {
-            window *reswins = chktimewindows(&wins, 99);
+            window *reswins = chktimewindows(&wins, TTL_TIME);
 
             while (reswins != NULL) {
-                printf("Stale window: %d\n", (*reswins).id);
                 reswins = (*reswins).next;
             }
 
             while (reswins != NULL) {
-                if (sendto(sockfd, (*reswins).buff, (*reswins).size, 0,
+                if (sendto(sockfd, (*reswins).buff, (*reswins).size + 4, 0,
                            (struct sockaddr *)&serv_addr, salen) == -1) {
                     perror("Failed sendto\n");
                     return 1;
@@ -102,11 +98,11 @@ int main(int argc, char *argv[]) {
             bytesReceived = (recvfrom(sockfd, ackbuff, 4, 0,
                                       (struct sockaddr *)&resp_addr, &salen));
             if (bytesReceived >= 4) {
-                printf("Recieved Ack %04x\n", *((unsigned int *)ackbuff));
+                printf("Recieved response of size %d :%04x\n", bytesReceived, *((unsigned int *)ackbuff));
                 removewindow(&wins, *((unsigned int *)ackbuff));
-            }
+            } 
 
-        } while (remainingwindows(&wins) >= WINDOW_SIZE);
+        } while (remainingwindows(wins) >= WINDOW_SIZE);
 
         int nread = fread(buff, 1, 256, fp);
         if (nread <= 0) {
@@ -133,7 +129,6 @@ int main(int argc, char *argv[]) {
             }
 
             addwindow(&wins, buff, nread);
-            removewindow(&wins, currwin);
         }
 
         if (nread < 256) {
@@ -143,11 +138,16 @@ int main(int argc, char *argv[]) {
 
             if (ferror(fp)) {
                 printf("Error reading\n");
+                return 1;
             }
 
             // make sure all data is received
-            while (remainingwindows(&wins) > 0) {
-                window *reswins = chktimewindows(&wins, 99);
+            while (remainingwindows(wins) > 0) {
+                window *reswins = chktimewindows(&wins, TTL_TIME);
+
+                printf("Verifying all windows are recieved");
+                printf("Pending windows %d\n",remainingwindows(wins));
+                printwindows(wins);
 
                 while (reswins != NULL) {
                     printf("Stale window: %d\n", (*reswins).id);
@@ -170,9 +170,9 @@ int main(int argc, char *argv[]) {
                     (recvfrom(sockfd, ackbuff, 4, 0,
                               (struct sockaddr *)&resp_addr, &salen));
                 if (bytesReceived >= 4) {
-                    printf("Recieved Ack %04x\n", *((unsigned int *)ackbuff));
+                    printf("Recieved response of size %d :%04x\n", bytesReceived, *((unsigned int *)ackbuff));
                     removewindow(&wins, *((unsigned int *)ackbuff));
-                }
+                } 
             }
 
             close(sockfd);
@@ -183,4 +183,4 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void printHelp(void) { printf("USAGE: ./client <filename>\n"); }
+void printHelp(void) { printf("USAGE: ./client <Filename> <IP> <Port>\n"); }

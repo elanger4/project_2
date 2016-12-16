@@ -10,7 +10,7 @@
 
 #include "ftrans.h"
 
-#define PORT_NUM 5556
+#define PORT_NUM 8989
 #define MAX_FILESIZE 9999999
 
 int main(void) {
@@ -57,9 +57,7 @@ int main(void) {
                     perror("sendto failed");
                     return 1;
                 }
-                // THIS WILL NEED TO BE REPLACED WITH A BETTER METHOD FOR
-                // DETECTING THE END OF THE TRANSMISSION
-                // handle this by sending the files size after the filename
+                
                 if ((bytesReceived - 4) < 256) {
                     fin = 0;
                 } else {

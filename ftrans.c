@@ -72,20 +72,27 @@ int removewindow(windows *ws, unsigned int index) {
 
 window *getwindow(windows *ws, unsigned int index) {
     window *tmp = (*ws).requests;
+    window *prev = NULL;
 
     while (tmp != NULL) {
         if ((*tmp).id == index) {
+            if (prev == NULL) {
+                (*ws).requests = (*tmp).next;
+            } else {
+                (*prev).next = (*tmp).next;
+            }
             return tmp;
         } else {
+            prev = tmp;
             tmp = (*tmp).next;
         }
     }
     return NULL;
 }
 
-unsigned int remainingwindows(windows *ws) {
+unsigned int remainingwindows(windows ws) {
     unsigned int rem = 0;
-    window *tmp = (*ws).requests;
+    window *tmp = ws.requests;
 
     while (tmp != NULL) {
         tmp = (*tmp).next;
@@ -95,9 +102,10 @@ unsigned int remainingwindows(windows *ws) {
 }
 
 window *chktimewindows(windows *ws, long ttl) {
-    window *stale = NULL;
     window *iter = (*ws).requests;
-    window *prev = NULL;
+    window *stale = NULL;
+    window *tmp = NULL;
+    
     long ms;
     struct timespec spec;
 
@@ -106,23 +114,31 @@ window *chktimewindows(windows *ws, long ttl) {
 
     while (iter != NULL) {
         if ((*iter).ms + ttl > ms) {
-            // we need to resend this message because the response has timed out
-            // so we remove it and add it to the linked list of windows returned
-            if (prev != NULL) {
-                (*prev).next = (*iter).next;
-                (*iter).next = stale;
-                stale = iter;
-            } else {
-                (*ws).requests = NULL;
+            window *tmp = getwindow(ws,(*iter).id);
+            if(tmp != NULL) {
+                if(stale == NULL) {
+                    stale = tmp;
+                } else {
+                    (*tmp).next = stale;
+                    stale = tmp;
+                }
             }
-        } else {
-            prev = iter;
         }
         iter = (*iter).next;
     }
-    if (prev != NULL) {
-        (*prev).next = stale;
+
+    //appand the stale list to the end of the remaining nodes
+    tmp = (*ws).requests;
+    while(tmp != NULL && (*tmp).next != NULL) {
+        tmp = (*tmp).next;
     }
+
+    if(tmp == NULL) { 
+        (*ws).requests = stale;
+    } else {
+        (*tmp).next = stale;
+    }
+
     return stale;
 }
 
