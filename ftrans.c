@@ -1,6 +1,7 @@
 #include "ftrans.h"
 
-unsigned int addwindowindex(windows *ws, unsigned char *buff,unsigned int size,unsigned int index) {
+unsigned int addwindowindex(windows *ws, unsigned char *buff, unsigned int size,
+                            unsigned int index) {
     struct timespec spec;
     window *iter = (*ws).requests;
     window *tmp = calloc(sizeof(window), 1);
@@ -23,7 +24,7 @@ unsigned int addwindowindex(windows *ws, unsigned char *buff,unsigned int size,u
     return index;
 }
 
-unsigned int addwindow(windows *ws, unsigned char *buff,unsigned int size) {
+unsigned int addwindow(windows *ws, unsigned char *buff, unsigned int size) {
     static unsigned int index = 0;
     struct timespec spec;
     window *iter = (*ws).requests;
@@ -53,7 +54,7 @@ int removewindow(windows *ws, unsigned int index) {
 
     while (tmp != NULL) {
         if ((*tmp).id == index) {
-            if(prev == NULL) {
+            if (prev == NULL) {
                 (*ws).requests = (*tmp).next;
             } else {
                 (*prev).next = (*tmp).next;
@@ -119,7 +120,7 @@ window *chktimewindows(windows *ws, long ttl) {
         }
         iter = (*iter).next;
     }
-    if(prev != NULL) {
+    if (prev != NULL) {
         (*prev).next = stale;
     }
     return stale;
@@ -127,8 +128,9 @@ window *chktimewindows(windows *ws, long ttl) {
 
 void printwindows(windows ws) {
     window *tmp = ws.requests;
-    while(tmp != NULL) {
-        printf("Window: id: %d bufflen: %d addr: %04x next: %04x\n",(*tmp).id,(*tmp).size,tmp,(*tmp).next);
+    while (tmp != NULL) {
+        printf("Window: id: %d bufflen: %d addr: %04x next: %04x\n", (*tmp).id,
+               (*tmp).size, tmp, (*tmp).next);
         tmp = (*tmp).next;
     }
 }

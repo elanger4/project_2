@@ -30,7 +30,8 @@ typedef struct windows {
 } windows;
 
 unsigned int addwindow(windows *ws, unsigned char *buff, unsigned int size);
-unsigned int addwindowindex(windows *ws,unsigned char *buff,unsigned int size, unsigned int index);
+unsigned int addwindowindex(windows *ws, unsigned char *buff, unsigned int size,
+                            unsigned int index);
 int removewindow(windows *ws, unsigned int index);
 window *getwindow(windows *ws, unsigned int index);
 window *chktimewindows(windows *ws, long ttl);

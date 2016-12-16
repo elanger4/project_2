@@ -31,7 +31,7 @@ int main(void) {
     bind(listenfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
 
     while (1) {
-        unsigned char *buff = calloc(sizeof(char),260);
+        unsigned char *buff = calloc(sizeof(char), 260);
         int bytesReceived = 0;
         unsigned int fin = 1;
         FILE *fp;
@@ -39,45 +39,51 @@ int main(void) {
 
         wins.requests = NULL;
 
-        while (fin && (bytesReceived = (recvfrom(listenfd, buff, 260,0,(struct sockaddr *)&cli_addr,&salen))) >= 0) {
+        while (fin &&
+               (bytesReceived =
+                    (recvfrom(listenfd, buff, 260, 0,
+                              (struct sockaddr *)&cli_addr, &salen))) >= 0) {
             printf("Bytes received %d\n", bytesReceived);
-            if(bytesReceived < 4) {
+            if (bytesReceived < 4) {
                 printf("Ignoring packet of lenght <4\n");
             } else {
-                printf("Packet Index: %d\n",*((unsigned int*)(buff+bytesReceived - 4)));
-                addwindowindex(&wins,buff,bytesReceived-4,*((int*)(buff + bytesReceived - 4)));
+                printf("Packet Index: %d\n",
+                       *((unsigned int *)(buff + bytesReceived - 4)));
+                addwindowindex(&wins, buff, bytesReceived - 4,
+                               *((int *)(buff + bytesReceived - 4)));
                 printf("Sending ack response\n");
-                if (sendto(listenfd, buff + bytesReceived - 4, 4, 0, (struct sockaddr*) &cli_addr, salen) == -1)
-                {
+                if (sendto(listenfd, buff + bytesReceived - 4, 4, 0,
+                           (struct sockaddr *)&cli_addr, salen) == -1) {
                     perror("sendto failed");
                     return 1;
                 }
-                //THIS WILL NEED TO BE REPLACED WITH A BETTER METHOD FOR DETECTING THE END OF THE TRANSMISSION
-                //handle this by sending the files size after the filename
-                if((bytesReceived-4) < 256) {
+                // THIS WILL NEED TO BE REPLACED WITH A BETTER METHOD FOR
+                // DETECTING THE END OF THE TRANSMISSION
+                // handle this by sending the files size after the filename
+                if ((bytesReceived - 4) < 256) {
                     fin = 0;
                 } else {
-                    buff = calloc(sizeof(char),260);
+                    buff = calloc(sizeof(char), 260);
                 }
             }
         }
 
-        //first and second are the file name and filesize respectively
-        fp = fopen( (char *)(*(getwindow(&wins,0))).buff, "wb");
+        // first and second are the file name and filesize respectively
+        fp = fopen((char *)(*(getwindow(&wins, 0))).buff, "wb");
         if (fp == NULL) {
-            printf("Invalid filename: %s",buff);
+            printf("Invalid filename: %s", buff);
             perror("File open error");
             return 1;
         }
 
-        removewindow(&wins,0);
+        removewindow(&wins, 0);
 
         unsigned long findex = 1;
-        while( (wins.requests != NULL) && (findex < MAX_FILESIZE) ) {
-            window *tmp = getwindow(&wins,findex);
-            if(tmp != NULL) {
+        while ((wins.requests != NULL) && (findex < MAX_FILESIZE)) {
+            window *tmp = getwindow(&wins, findex);
+            if (tmp != NULL) {
                 fwrite((*tmp).buff, 1, (*tmp).size, fp);
-                removewindow(&wins,findex);
+                removewindow(&wins, findex);
             }
             findex++;
         }

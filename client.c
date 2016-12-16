@@ -14,11 +14,11 @@ int main(int argc, char *argv[]) {
     char recvBuff[260];
     memset(recvBuff, '0', sizeof(recvBuff));
     struct sockaddr_in serv_addr, resp_addr;
-    struct timespec spec; 
+    struct timespec spec;
     unsigned int salen = sizeof(serv_addr);
     windows wins;
 
-    if(argc < 2) {
+    if (argc < 2) {
         printHelp();
         return 1;
     }
@@ -28,16 +28,16 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    memset((unsigned char *) &serv_addr, 0, sizeof(serv_addr));
+    memset((unsigned char *)&serv_addr, 0, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(PORT_NUM);  // port
 
-    if (inet_aton(SERVER_ADDR , &serv_addr.sin_addr) == 0) {
+    if (inet_aton(SERVER_ADDR, &serv_addr.sin_addr) == 0) {
         perror("inet_aton() failed\n");
         return 1;
     }
 
-    if(strlen(argv[1]) > 256) {
+    if (strlen(argv[1]) > 256) {
         printf("Filename too large");
         return 1;
     }
@@ -49,19 +49,20 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    unsigned char *fips = calloc(sizeof(char),260);
+    unsigned char *fips = calloc(sizeof(char), 260);
     unsigned int z;
-    for(z = 0; z < 260 && z < strlen(argv[1])+1; z++) {
+    for (z = 0; z < 260 && z < strlen(argv[1]) + 1; z++) {
         fips[z] = argv[1][z];
     }
 
-    //make socket non-blocking
+    // make socket non-blocking
     int flags = fcntl(sockfd, F_GETFL, 0);
     fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
 
     // Send filename to server
-    printf("Sending filename of size %d: \"%s\"\n",strlen(argv[1]),argv[1]); 
-    if (sendto(sockfd, fips, 260, 0, (struct sockaddr *) &serv_addr, salen) == -1) {
+    printf("Sending filename of size %d: \"%s\"\n", strlen(argv[1]), argv[1]);
+    if (sendto(sockfd, fips, 260, 0, (struct sockaddr *)&serv_addr, salen) ==
+        -1) {
         perror("Failed sendto\n");
         return 1;
     }
@@ -79,14 +80,15 @@ int main(int argc, char *argv[]) {
         // make sure all data is received
         do {
             window *reswins = chktimewindows(&wins, 99);
-            
-            while(reswins != NULL) {
-                printf("Stale window: %d\n",(*reswins).id);
+
+            while (reswins != NULL) {
+                printf("Stale window: %d\n", (*reswins).id);
                 reswins = (*reswins).next;
             }
-            
-            while(reswins != NULL) {
-                if (sendto(sockfd, (*reswins).buff,  (*reswins).size, 0, (struct sockaddr *) &serv_addr, salen) == -1) {
+
+            while (reswins != NULL) {
+                if (sendto(sockfd, (*reswins).buff, (*reswins).size, 0,
+                           (struct sockaddr *)&serv_addr, salen) == -1) {
                     perror("Failed sendto\n");
                     return 1;
                 } else {
@@ -95,28 +97,28 @@ int main(int argc, char *argv[]) {
                 }
                 reswins = (*reswins).next;
             }
-            
-            //read acks and remove related windows
-            bytesReceived = (recvfrom(sockfd, ackbuff, 4,0,(struct sockaddr *)&resp_addr,&salen));
-            if(bytesReceived >= 4) {
-                printf("Recieved Ack %04x\n",*((unsigned int *)ackbuff));
+
+            // read acks and remove related windows
+            bytesReceived = (recvfrom(sockfd, ackbuff, 4, 0,
+                                      (struct sockaddr *)&resp_addr, &salen));
+            if (bytesReceived >= 4) {
+                printf("Recieved Ack %04x\n", *((unsigned int *)ackbuff));
                 removewindow(&wins, *((unsigned int *)ackbuff));
             }
 
-        } while ( remainingwindows(&wins) >= WINDOW_SIZE );
+        } while (remainingwindows(&wins) >= WINDOW_SIZE);
 
         int nread = fread(buff, 1, 256, fp);
-        if (nread <= 0)
-        {
+        if (nread <= 0) {
             perror("Failed to read from file.");
             return 1;
         }
 
-        memcpy(buff+nread, &currwin, sizeof(currwin));
+        memcpy(buff + nread, &currwin, sizeof(currwin));
         buff[nread] = ((char *)&currwin)[0];
-        buff[nread+1] = ((char *)&currwin)[1];
-        buff[nread+2] = ((char *)&currwin)[2];
-        buff[nread+3] = ((char *)&currwin)[3];
+        buff[nread + 1] = ((char *)&currwin)[1];
+        buff[nread + 2] = ((char *)&currwin)[2];
+        buff[nread + 3] = ((char *)&currwin)[3];
 
         currwin++;
 
@@ -124,7 +126,8 @@ int main(int argc, char *argv[]) {
 
         if (nread > 0) {
             printf("Sending \n");
-            if (sendto(sockfd, buff,  nread + 4, 0, (struct sockaddr *) &serv_addr, salen) == -1) {
+            if (sendto(sockfd, buff, nread + 4, 0,
+                       (struct sockaddr *)&serv_addr, salen) == -1) {
                 perror("Failed sendto\n");
                 return 1;
             }
@@ -145,14 +148,15 @@ int main(int argc, char *argv[]) {
             // make sure all data is received
             while (remainingwindows(&wins) > 0) {
                 window *reswins = chktimewindows(&wins, 99);
-                
-                while(reswins != NULL) {
-                    printf("Stale window: %d\n",(*reswins).id);
+
+                while (reswins != NULL) {
+                    printf("Stale window: %d\n", (*reswins).id);
                     reswins = (*reswins).next;
                 }
-                
-                while(reswins != NULL) {
-                    if (sendto(sockfd, (*reswins).buff,  (*reswins).size, 0, (struct sockaddr *) &serv_addr, salen) == -1) {
+
+                while (reswins != NULL) {
+                    if (sendto(sockfd, (*reswins).buff, (*reswins).size, 0,
+                               (struct sockaddr *)&serv_addr, salen) == -1) {
                         perror("Failed sendto\n");
                         return 1;
                     } else {
@@ -161,10 +165,12 @@ int main(int argc, char *argv[]) {
                     }
                     reswins = (*reswins).next;
                 }
-            
-                bytesReceived = (recvfrom(sockfd, ackbuff, 4,0,(struct sockaddr *)&resp_addr,&salen));
-                if(bytesReceived >= 4) {
-                    printf("Recieved Ack %04x\n",*((unsigned int *)ackbuff));
+
+                bytesReceived =
+                    (recvfrom(sockfd, ackbuff, 4, 0,
+                              (struct sockaddr *)&resp_addr, &salen));
+                if (bytesReceived >= 4) {
+                    printf("Recieved Ack %04x\n", *((unsigned int *)ackbuff));
                     removewindow(&wins, *((unsigned int *)ackbuff));
                 }
             }
@@ -177,6 +183,4 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void printHelp(void) {
-    printf("USAGE: ./client <filename>\n");
-}
+void printHelp(void) { printf("USAGE: ./client <filename>\n"); }
